@@ -1,7 +1,9 @@
 import json
 import os
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+#import tensorflow as tf
 import numpy as np
 import random
 from layers_object import conv_layer, up_sampling, max_pool, initialization, \
@@ -26,7 +28,7 @@ class SegNet:
             print("No VGG path in config, so learning from scratch")
         else:
             self.vgg16_npy_path = self.config["VGG_FILE"]
-            self.vgg_param_dict = np.load(self.vgg16_npy_path, encoding='latin1').item()
+            self.vgg_param_dict = np.load(self.vgg16_npy_path, allow_pickle=True, encoding='latin1').item()
             print("VGG parameter loaded")
 
         self.train_file = self.config["TRAIN_FILE"]
@@ -53,7 +55,7 @@ class SegNet:
 
         self.graph = tf.Graph()
         with self.graph.as_default():
-            self.sess = tf.Session()
+            self.sess = tf.Session()#tf.compat.v1.Session()
             self.batch_size_pl = tf.placeholder(tf.int64, shape=[], name="batch_size")
             self.is_training_pl = tf.placeholder(tf.bool, name="is_training")
             self.with_dropout_pl = tf.placeholder(tf.bool, name="with_dropout")
@@ -195,9 +197,9 @@ class SegNet:
     def train(self, max_steps=30001, batch_size=3):
         # For train the bayes, the FLAG_OPT SHOULD BE SGD, BUT FOR TRAIN THE NORMAL SEGNET,
         # THE FLAG_OPT SHOULD BE ADAM!!!
-
         image_filename, label_filename = get_filename_list(self.train_file, self.config)
         val_image_filename, val_label_filename = get_filename_list(self.val_file, self.config)
+        batch_size = self.batch_size
 
         with self.graph.as_default():
             if self.images_tr is None:
@@ -269,12 +271,18 @@ class SegNet:
 
                         self.val_loss.append(np.mean(_val_loss))
                         self.val_acc.append(np.mean(_val_acc))
-
+                        
+                        if np.max(self.val_acc) == self.val_acc[-1]:
+                            self.save()
+                            
+                        
                         print(
                             "Iteration {}: Train Loss {:6.3f}, Train Acc {:6.3f}, Val Loss {:6.3f}, Val Acc {:6.3f}".format(
                                 step, self.train_loss[-1], self.train_accuracy[-1], self.val_loss[-1],
                                 self.val_acc[-1]))
-
+                    
+                        
+                    
                 coord.request_stop()
                 coord.join(threads)
 
@@ -474,10 +482,19 @@ class SegNet:
             
            
     def test(self):
+        train_dir = self.config["SAVE_MODEL_DIR"]
+        
         image_filename, label_filename = get_filename_list(self.test_file, self.config)
-
+        
+        
         with self.graph.as_default():
             with self.sess as sess:
+                
+                if train_dir is not None:
+                    print('Loading pre-trained model from '+train_dir )
+                    saver = tf.train.Saver()
+                    saver.restore(sess, train_dir)
+                
                 loss, accuracy, prediction = normal_loss(self.logits, self.labels_pl, self.num_classes)
                 prob = tf.nn.softmax(self.logits, dim=-1)
                 prob = tf.reshape(prob, [self.input_h, self.input_w, self.num_classes])
@@ -509,7 +526,7 @@ class SegNet:
                         if num_sample_generate == 1:
                             feed_dict = {self.inputs_pl: image_batch, self.labels_pl: label_batch,
                                          self.is_training_pl: False,
-                                         self.keep_prob_pl: 0.5, self.with_dropout_pl: False,
+                                         self.keep_prob_pl: 1.0, self.with_dropout_pl: False,
                                          self.batch_size_pl: 1}
                         else:
                             feed_dict = {self.inputs_pl: image_batch, self.labels_pl: label_batch,
@@ -521,6 +538,7 @@ class SegNet:
                         fetches = [loss, accuracy, self.logits, prediction]
                         if self.bayes is False:
                             loss_per, acc_per, logit, pred = sess.run(fetches=fetches, feed_dict=feed_dict)
+                            prob_variance, logit_variance = 0., 0.
                             var_one = []
                         else:
                             logit_iter_tot = []

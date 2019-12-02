@@ -4,10 +4,13 @@ Created on Tue Nov 21 16:12:45 2017
 This file is utilized to calculate the loss, accuracy, per_class_accuracy, and MOI(mean of intersection)
 
 """
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+
+#import tensorflow as tf
 import numpy as np
 
-def cal_loss(logits, labels):
+def cal_loss(logits, labels, number_class=12):
     loss_weight = np.array([
         0.2595,
         0.1826,
@@ -25,7 +28,7 @@ def cal_loss(logits, labels):
     # class 0 to 11, but the class 11 is ignored, so maybe the class 11 is background!
 
     labels = tf.to_int64(labels)
-    loss, accuracy, prediction = weighted_loss(logits, labels, number_class=12, frequency=loss_weight)
+    loss, accuracy, prediction = weighted_loss(logits, labels, number_class=number_class, frequency=loss_weight)
     return loss, accuracy, prediction
 
 
