@@ -10,7 +10,7 @@ tf.disable_v2_behavior()
 #import tensorflow as tf
 import numpy as np
 
-def cal_loss(logits, labels, number_class=12):
+def cal_loss(logits, labels, number_class=11):
     loss_weight = np.array([
         0.2595,
         0.1826,
@@ -22,8 +22,8 @@ def cal_loss(logits, labels, number_class=12):
         1.8418,
         0.6823,
         6.2478,
-        7.3614,
-        1.0974
+        7.3614
+        #1.0974
     ])
     # class 0 to 11, but the class 11 is ignored, so maybe the class 11 is background!
 
@@ -75,8 +75,15 @@ def normal_loss(logits, labels, number_class):
     will conduct a softmax internal to be efficient, this is the reason that we don't do softmax in the inference 
     function!
     """
+    print('In-loss num classes:', number_class)
     label_flatten = tf.to_int64(tf.reshape(labels, [-1]))
+    print('Labels shape: ', labels.shape )
+    print('Labels flatten shape: ', label_flatten.shape)
+    
     logits_reshape = tf.reshape(logits, [-1, number_class])
+    print('Logits shape: ', logits.shape)
+    print('Logits reshape shape: ', logits_reshape.shape)
+    
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=label_flatten, logits=logits_reshape,
                                                                    name='normal_cross_entropy')
     cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')

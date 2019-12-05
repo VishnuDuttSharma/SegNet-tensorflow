@@ -485,7 +485,7 @@ class SegNet:
         train_dir = self.config["SAVE_MODEL_DIR"]
         
         image_filename, label_filename = get_filename_list(self.test_file, self.config)
-        
+         
         
         with self.graph.as_default():
             with self.sess as sess:
@@ -495,7 +495,7 @@ class SegNet:
                     saver = tf.train.Saver()
                     saver.restore(sess, train_dir)
                 
-                loss, accuracy, prediction = normal_loss(self.logits, self.labels_pl, self.num_classes)
+                #loss, accuracy, prediction = normal_loss(self.logits, self.labels_pl, self.num_classes)         
                 prob = tf.nn.softmax(self.logits, dim=-1)
                 prob = tf.reshape(prob, [self.input_h, self.input_w, self.num_classes])
 
@@ -535,9 +535,12 @@ class SegNet:
                                          self.batch_size_pl: 1}
                         # uncomment this code below to run the dropout for all the samples
                         # feed_dict = {test_data_tensor: image_batch, test_label_tensor:label_batch, phase_train: False, keep_prob:0.5, phase_train_dropout:True}
-                        fetches = [loss, accuracy, self.logits, prediction]
+                        #fetches = [loss, accuracy, self.logits, prediction]
+                        fetches = [self.logits, tf.argmax(prob, -1)]
                         if self.bayes is False:
-                            loss_per, acc_per, logit, pred = sess.run(fetches=fetches, feed_dict=feed_dict)
+                            #loss_per, acc_per, logit, pred = sess.run(fetches=fetches, feed_dict=feed_dict)
+                            loss_per, acc_per = 0., 0.
+                            logit, pred = sess.run(fetches=fetches, feed_dict=feed_dict)
                             prob_variance, logit_variance = 0., 0.
                             var_one = []
                         else:
@@ -590,9 +593,9 @@ class SegNet:
                     acc_tot = np.diag(hist).sum() / hist.sum()
                     iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
 
-                    print("Total Accuracy for test image: ", acc_tot)
-                    print("Total MoI for test images: ", iu)
-                    print("mean MoI for test images: ", np.nanmean(iu))
+                    #print("Total Accuracy for test image: ", acc_tot)
+                    #print("Total MoI for test images: ", iu)
+                    #print("mean MoI for test images: ", np.nanmean(iu))
 
                     acc_final.append(acc_tot)
                     iu_final.append(iu)
